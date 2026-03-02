@@ -1,87 +1,86 @@
-# LLM Council
+# LLM Council (Direct API Variant)
 
 ![llmcouncil](header.jpg)
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+This is a fork of [karpathy/llm-council](https://github.com/karpathy/llm-council) that **bypasses OpenRouter and calls AI providers directly**.
 
-In a bit more detail, here is what happens when you submit a query:
+## Why bypass OpenRouter?
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+The original repo routes all queries through [OpenRouter](https://openrouter.ai/), a paid proxy that sits between you and the AI providers. The problem: OpenRouter categorises every input using a hosted classifier model and uses that data to track and share user metrics — including on its public [Rankings page](https://openrouter.ai/rankings) — even when you disable logging in your account settings.
 
-## Vibe Code Alert
+This variant removes OpenRouter entirely. Your queries go straight from your machine to OpenAI, Anthropic, Google, and xAI with no middleman. You pay each provider directly at their standard API rates.
 
-This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+## What changed
+
+Three backend files were modified. Zero frontend changes.
+
+| File | Change |
+|------|--------|
+| `.env` | Replaced single `OPENROUTER_API_KEY` with 4 provider keys |
+| `backend/config.py` | Provider registry mapping each prefix to its native API endpoint |
+| `backend/openrouter.py` | Routes requests to the correct provider API based on model prefix |
+
+## How it works
+
+The app groups multiple LLMs into a "Council" that collaboratively answers your questions in 3 stages:
+
+1. **Stage 1 — First opinions**: Your query goes to all council models in parallel. You can inspect each response individually.
+2. **Stage 2 — Peer review**: Each model receives the other models' responses (anonymized to prevent favoritism) and ranks them by accuracy and insight.
+3. **Stage 3 — Final answer**: A designated Chairman model synthesizes everything into a single comprehensive response.
 
 ## Setup
 
-### 1. Install Dependencies
+### 1. Install dependencies
 
-The project uses [uv](https://docs.astral.sh/uv/) for project management.
+Requires [uv](https://docs.astral.sh/uv/) for Python and npm for the frontend.
 
-**Backend:**
 ```bash
 uv sync
+cd frontend && npm install && cd ..
 ```
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-cd ..
+### 2. Configure API keys
+
+Create a `.env` file in the project root with your provider keys:
+
+```
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=AIza...
+XAI_API_KEY=xai-...
 ```
 
-### 2. Configure API Key
+### 3. Configure models (optional)
 
-Create a `.env` file in the project root:
-
-```bash
-OPENROUTER_API_KEY=sk-or-v1-...
-```
-
-Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
-
-### 3. Configure Models (Optional)
-
-Edit `backend/config.py` to customize the council:
+Edit `backend/config.py` to customize the council. Model identifiers use the format `provider/model-name`:
 
 ```python
 COUNCIL_MODELS = [
     "openai/gpt-5.1",
     "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
+    "anthropic/claude-sonnet-4-5",
     "x-ai/grok-4",
 ]
 
 CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 ```
 
-## Running the Application
+Supported providers: `openai`, `anthropic`, `google`, `x-ai`. OpenAI, Google, and xAI all use OpenAI-compatible endpoints. Anthropic is handled separately via its native Messages API.
 
-**Option 1: Use the start script**
+## Running
+
 ```bash
 ./start.sh
 ```
 
-**Option 2: Run manually**
+Then open http://localhost:5173.
 
-Terminal 1 (Backend):
-```bash
-uv run python -m backend.main
-```
+## Tech stack
 
-Terminal 2 (Frontend):
-```bash
-cd frontend
-npm run dev
-```
-
-Then open http://localhost:5173 in your browser.
-
-## Tech Stack
-
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
-- **Frontend:** React + Vite, react-markdown for rendering
+- **Backend:** FastAPI, async httpx, direct provider APIs
+- **Frontend:** React + Vite, react-markdown
 - **Storage:** JSON files in `data/conversations/`
-- **Package Management:** uv for Python, npm for JavaScript
+
+## Credit
+
+Original project by [Andrej Karpathy](https://github.com/karpathy/llm-council). This variant modifies only the API layer.
