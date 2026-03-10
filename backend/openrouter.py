@@ -1,8 +1,13 @@
 """Multi-provider API client for making LLM requests."""
 
 import httpx
+import time
+import logging
 from typing import List, Dict, Any, Optional
 from .config import PROVIDERS
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def _get_provider_config(model: str) -> tuple[str, str, dict]:
@@ -42,12 +47,18 @@ async def _query_openai_compatible(
         "messages": messages,
     }
 
+    # Enable reasoning/thinking for models that support it
+    if model_name.startswith("gpt-5") or model_name.startswith("gemini"):
+        payload["reasoning_effort"] = "high"
+
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             config["base_url"],
             headers=headers,
             json=payload,
         )
+        if response.status_code != 200:
+            logger.error(f"[{model_name}] HTTP {response.status_code}: {response.text[:500]}")
         response.raise_for_status()
 
         data = response.json()
@@ -83,8 +94,12 @@ async def _query_anthropic(
 
     payload = {
         "model": model_name,
-        "max_tokens": 8192,
+        "max_tokens": 16384,
         "messages": non_system,
+        "thinking": {
+            "type": "enabled",
+            "budget_tokens": 10000,
+        },
     }
     if system_text:
         payload["system"] = system_text
@@ -95,26 +110,31 @@ async def _query_anthropic(
             headers=headers,
             json=payload,
         )
+        if response.status_code != 200:
+            logger.error(f"[{model_name}] HTTP {response.status_code}: {response.text[:500]}")
         response.raise_for_status()
 
         data = response.json()
 
-        # Anthropic returns content blocks: [{"type": "text", "text": "..."}]
+        # Anthropic returns content blocks: [{"type": "thinking", ...}, {"type": "text", ...}]
         content = ""
+        thinking = ""
         for block in data.get("content", []):
             if block.get("type") == "text":
                 content += block.get("text", "")
+            elif block.get("type") == "thinking":
+                thinking += block.get("thinking", "")
 
         return {
             "content": content,
-            "reasoning_details": None,
+            "reasoning_details": thinking or None,
         }
 
 
 async def query_model(
     model: str,
     messages: List[Dict[str, str]],
-    timeout: float = 120.0,
+    timeout: float = 500.0,
 ) -> Optional[Dict[str, Any]]:
     """
     Query a single model via its native API.
@@ -127,16 +147,24 @@ async def query_model(
     Returns:
         Response dict with 'content' and optional 'reasoning_details', or None if failed
     """
+    start = time.time()
     try:
         model_name, _prefix, config = _get_provider_config(model)
+        logger.info(f"[{model}] Starting request (timeout={timeout}s)")
 
         if config["format"] == "anthropic":
-            return await _query_anthropic(model_name, messages, config, timeout)
+            result = await _query_anthropic(model_name, messages, config, timeout)
         else:
-            return await _query_openai_compatible(model_name, messages, config, timeout)
+            result = await _query_openai_compatible(model_name, messages, config, timeout)
+
+        elapsed = time.time() - start
+        content_len = len(result.get("content", "")) if result else 0
+        logger.info(f"[{model}] Success in {elapsed:.1f}s ({content_len} chars)")
+        return result
 
     except Exception as e:
-        print(f"Error querying model {model}: {e}")
+        elapsed = time.time() - start
+        logger.error(f"[{model}] Failed after {elapsed:.1f}s: {type(e).__name__}: {e}")
         return None
 
 

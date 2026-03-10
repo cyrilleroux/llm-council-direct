@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
@@ -64,7 +65,7 @@ export default function ChatInterface({
                   <div className="message-label">You</div>
                   <div className="message-content">
                     <div className="markdown-content">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                     </div>
                   </div>
                 </div>
@@ -75,8 +76,13 @@ export default function ChatInterface({
                   {/* Stage 1 */}
                   {msg.loading?.stage1 && (
                     <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 1: Collecting individual responses...</span>
+                      <div className="council-dots">
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                      </div>
+                      <span>Stage 1 &mdash; Collecting individual responses</span>
                     </div>
                   )}
                   {msg.stage1 && <Stage1 responses={msg.stage1} />}
@@ -84,8 +90,13 @@ export default function ChatInterface({
                   {/* Stage 2 */}
                   {msg.loading?.stage2 && (
                     <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 2: Peer rankings...</span>
+                      <div className="council-dots">
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                      </div>
+                      <span>Stage 2 &mdash; Peer review in progress</span>
                     </div>
                   )}
                   {msg.stage2 && (
@@ -99,8 +110,13 @@ export default function ChatInterface({
                   {/* Stage 3 */}
                   {msg.loading?.stage3 && (
                     <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 3: Final synthesis...</span>
+                      <div className="council-dots">
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                        <div className="council-dot" />
+                      </div>
+                      <span>Stage 3 &mdash; Synthesizing final answer</span>
                     </div>
                   )}
                   {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
@@ -112,7 +128,12 @@ export default function ChatInterface({
 
         {isLoading && (
           <div className="loading-indicator">
-            <div className="spinner"></div>
+            <div className="orbit-container">
+              <div className="orbit-dot" />
+              <div className="orbit-dot" />
+              <div className="orbit-dot" />
+              <div className="orbit-dot" />
+            </div>
             <span>Consulting the council...</span>
           </div>
         )}

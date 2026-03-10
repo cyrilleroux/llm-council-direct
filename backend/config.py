@@ -31,14 +31,14 @@ PROVIDERS = {
 
 # Council members - list of model identifiers (provider/model)
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4-5",
+    "openai/gpt-5.4",
+    "anthropic/claude-opus-4-6",
+    "google/gemini-3.1-pro-preview",
     "x-ai/grok-4",
 ]
 
 # Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+CHAIRMAN_MODEL = "anthropic/claude-opus-4-6"
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"
